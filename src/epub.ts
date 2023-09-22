@@ -94,9 +94,3 @@ export class Epub {
     throw new Error('No metadata found');
   }
 }
-
-// const testbook = new Epub('Biegel, Paul - De gouden gitaar.1.epub');
-
-// testbook.getMetadata().then((metadata) => {
-//   console.log(metadata);
-// });
