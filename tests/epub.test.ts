@@ -1,41 +1,41 @@
 import { test, expect } from 'bun:test';
 import { Epub } from '../src/epub';
 
-// test('ePub: basic-v3plus2', async () => {
-//   const testBook = new Epub('tests/fixtures/basic-v3plus2.epub');
-//   const metadata = await testBook.getMetadata();
+test('ePub: basic-v3plus2', async () => {
+  const testBook = new Epub('tests/fixtures/basic-v3plus2.epub');
+  const metadata = await testBook.getMetadata();
 
-//   expect(metadata.title).toBe('Your title here');
-//   expect(metadata.creator).toBe('Hingle McCringleberry');
-//   expect(metadata.language).toBe('en');
-// });
+  expect(metadata.title).toBe('Your title here');
+  expect(metadata.creator).toBe('Hingle McCringleberry');
+  expect(metadata.language).toBe('en');
+});
 
-// test('ePub: minimal-v2', async () => {
-//   const testBook = new Epub('tests/fixtures/minimal-v2.epub');
-//   const metadata = await testBook.getMetadata();
+test('ePub: minimal-v2', async () => {
+  const testBook = new Epub('tests/fixtures/minimal-v2.epub');
+  const metadata = await testBook.getMetadata();
 
-//   expect(metadata.title).toBe('Your title here');
-//   expect(metadata.creator).toBe(undefined);
-//   expect(metadata.language).toBe('en');
-// });
+  expect(metadata.title).toBe('Your title here');
+  expect(metadata.creator).toBe(undefined);
+  expect(metadata.language).toBe('en');
+});
 
-// test('ePub: minimal-v3', async () => {
-//   const testBook = new Epub('tests/fixtures/minimal-v3.epub');
-//   const metadata = await testBook.getMetadata();
+test('ePub: minimal-v3', async () => {
+  const testBook = new Epub('tests/fixtures/minimal-v3.epub');
+  const metadata = await testBook.getMetadata();
 
-//   expect(metadata.title).toBe('Your title here');
-//   expect(metadata.creator).toBe(undefined);
-//   expect(metadata.language).toBe('en');
-// });
+  expect(metadata.title).toBe('Your title here');
+  expect(metadata.creator).toBe(undefined);
+  expect(metadata.language).toBe('en');
+});
 
-// test('ePub: minimal-v3plus2', async () => {
-//   const testBook = new Epub('tests/fixtures/minimal-v3plus2.epub');
-//   const metadata = await testBook.getMetadata();
+test('ePub: minimal-v3plus2', async () => {
+  const testBook = new Epub('tests/fixtures/minimal-v3plus2.epub');
+  const metadata = await testBook.getMetadata();
 
-//   expect(metadata.title).toBe('Your title here');
-//   expect(metadata.creator).toBe(undefined);
-//   expect(metadata.language).toBe('en');
-// });
+  expect(metadata.title).toBe('Your title here');
+  expect(metadata.creator).toBe(undefined);
+  expect(metadata.language).toBe('en');
+});
 
 // Random books from gutenberg.org
 test('ePub: pg71701-images', async () => {
