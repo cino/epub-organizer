@@ -1,3 +1,4 @@
-books
+books/*
+!books/.gitignore
 node_modules
 output
