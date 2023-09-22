@@ -1,0 +1,20 @@
+{
+  "name": "ebook-deduplicator",
+  "module": "index.ts",
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.1",
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "type": "module",
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "epub2": "^3.0.2",
+    "fast-xml-parser": "^4.3.0",
+    "sanitize-filename": "^1.6.3",
+    "xml2js": "^0.6.2",
+    "zipfile": "^0.5.12"
+  }
+}
