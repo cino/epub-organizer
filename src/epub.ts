@@ -1,18 +1,24 @@
 import AdmZip from 'adm-zip';
 import { XMLParser } from 'fast-xml-parser';
-import { MetaData } from './types';
+import { EBook, MetaData } from './types';
+import sanitize from 'sanitize-filename';
 import path from 'path';
 import fs from 'fs';
 
+/**
+ * Custom ePub parser that checks for additiona files in the
+ * directory and parses them if they exist.
+ */
 export class Epub {
-  private path: string;
+  private ePub: EBook;
+
   private zipFile: AdmZip;
 
   private parser: XMLParser;
 
-  constructor(path: string) {
-    this.path = path;
-    this.zipFile = new AdmZip(path);
+  constructor(ebook: EBook) {
+    this.ePub = ebook;
+    this.zipFile = new AdmZip(ebook.file);
     this.parser = new XMLParser({
       ignoreAttributes: false,
     });
@@ -42,9 +48,20 @@ export class Epub {
     return undefined;
   }
 
-  public async getMetadata(): Promise<MetaData> {
+  /**
+   * Ensures there is no / or \ in the filename that messes
+   * with the filesystem
+   */
+  private sanitizeCreator(creator?: string): string {
+    return (creator ?? '_UnknownAuthor')
+      .toString()
+      .replace(/v\/h/gi, 'van het')
+      .replace(/\s\/\s/gi, ' & ');
+  }
 
-    const epubDirectory = path.dirname(this.path);
+
+  public async getMetadata(): Promise<MetaData> {
+    const epubDirectory = path.dirname(this.ePub.file);
     const metaDataPath = path.join(epubDirectory, 'metadata.opf');
 
     let metaDataFile: string;
@@ -71,9 +88,12 @@ export class Epub {
         const dateObject = date ? new Date(date) : undefined;
         const validatedDate = dateObject && dateObject.getFullYear() > 500 ? dateObject : undefined;
 
+        const title = this.getMetaValue(metapackage.metadata['dc:title']);
+        const sanitzedTitle = title ? sanitize(title) : undefined;
+
         return {
-          title: this.getMetaValue(metapackage.metadata['dc:title']),
-          creator: this.getMetaValue(metapackage.metadata['dc:creator']),
+          title: sanitzedTitle,
+          creator: this.sanitizeCreator(this.getMetaValue(metapackage.metadata['dc:creator'])),
           date: validatedDate,
           description: this.getMetaValue(metapackage.metadata['dc:description']),
           language: this.getMetaValue(metapackage.metadata['dc:language']),
@@ -81,9 +101,12 @@ export class Epub {
       } else if (metapackage['opf:metadata'] !== undefined) {
         const date = this.getMetaValue(metapackage['opf:metadata']['dc:date']);
 
+        const title = this.getMetaValue(metapackage['opf:metadata']['dc:title']);
+        const sanitzedTitle = title ? sanitize(title) : undefined;
+
         return {
-          title: this.getMetaValue(metapackage['opf:metadata']['dc:title']),
-          creator: this.getMetaValue(metapackage['opf:metadata']['dc:creator']),
+          title: sanitzedTitle,
+          creator: this.sanitizeCreator(this.getMetaValue(metapackage['opf:metadata']['dc:creator'])),
           date: date ? new Date(date) : undefined,
           description: this.getMetaValue(metapackage['opf:metadata']['dc:description']),
           language: this.getMetaValue(metapackage['opf:metadata']['dc:language']),

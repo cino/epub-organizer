@@ -1,137 +1,160 @@
 import fs from 'fs';
 import { Epub } from './epub';
-import { GroupedBooks, ParsedBook } from './types';
-import sanitize from 'sanitize-filename';
+import { EBook, ParsedBook } from './types';
 import path from 'path';
 
-const readFolder = async (folder: string, files: string[]): Promise<void> => {
+// Loop over all files in a folder recursively and add all epub files to the files array
+// If there is only 1 file in the folder, it will be checked for a metadata.opf
+// file and if it exists, it will be used to parse the metadata
+const collectBooks = async (folder: string, files: EBook[]): Promise<void> => {
   const directory = fs.readdirSync(folder);
 
   for (let i = 0; i < directory.length; i++) {
     const entry = directory[i];
 
     if (fs.lstatSync(folder + "/" + entry).isDirectory()) {
-      readFolder(folder + "/" + entry, files);
-    } else if (entry.endsWith('.epub')) {
-      files.push(folder + "/" + entry);
+      // Create recursive call to collectBooks
+      collectBooks(folder + "/" + entry, files);
+
+      // go to next iteration
+      continue;
+    }
+
+    if (entry.endsWith('.epub')) {
+      const ePubsInDirectory = directory.filter((file) => file.endsWith('.epub'));
+
+      const eBook: EBook = {
+        file: folder + "/" + entry,
+      };
+
+      if (ePubsInDirectory.length === 1) {
+        // check if there is a metadata.opf file in the same directory
+        const metaDataPath = folder + "/metadata.opf";
+
+        if (fs.existsSync(metaDataPath)) {
+          eBook.metadataFile = metaDataPath;
+        }
+
+        // check if there is a cover.jpg file in the same directory
+        // TODO is a cover always jpg?
+        const coverPath = folder + "/cover.jpg";
+
+        if (fs.existsSync(coverPath)) {
+          eBook.additionalFiles = [coverPath];
+        }
+      }
+
+      files.push(eBook);
     }
   }
 };
 
 const parseBooks = async (
-  files: string[],
+  files: EBook[],
   parsedBooks: ParsedBook[],
   invalidBooks: string[],
 ): Promise<void> => {
   for (let i = 0; i < files.length; i++) {
-
     try {
       const book = new Epub(files[i]);
       const metaData = await book.getMetadata();
 
       parsedBooks.push({
         metaData,
-        originalLocation: files[i],
+        eBook: files[i],
       });
     } catch (e) {
       // ignore for now
-      // console.log(e);
 
-      invalidBooks.push(files[i]);
+      invalidBooks.push(files[i].file);
       console.log(`Book failed << ${e} >> ${files[i]}`);
     }
   }
 };
 
-const groupByAuthor = async (parsedBooks: ParsedBook[]): Promise<GroupedBooks> => {
-  const groupedByAuthor: GroupedBooks = {};
-  for (let i = 0; i < parsedBooks.length; i++) {
-    const book = parsedBooks[i];
-
-    if (book.metaData.creator) {
-      if (!groupedByAuthor[book.metaData.creator]) {
-        groupedByAuthor[book.metaData.creator] = [];
-      }
-
-      groupedByAuthor[book.metaData.creator].push(book);
-    }
-  }
-
-  return groupedByAuthor;
-};
-
-const copyBooks = async (groupedByAuthor: GroupedBooks): Promise<void> => {
-
+const copyBooks = async (books: ParsedBook[]): Promise<void> => {
   // store all books in directory per author in the output folder
   const outputFolder = 'output';
   if (!fs.existsSync(outputFolder)) {
     fs.mkdirSync(outputFolder);
   }
 
-  const authorNames = Object.keys(groupedByAuthor);
-  for (let i = 0; i < authorNames.length; i++) {
-
-    const authorName = authorNames[i];
-    const newAuthorName = authorName
-      .replace(/v\/h/gi, 'van het')
-      .replace(/\s\/\s/gi, ' & ');
-
-    const authorFolder = `${outputFolder}/${newAuthorName}`;
-
+  for (const book of books) {
+    // Create author folder if it doesn't exist yet
+    const authorFolder = `${outputFolder}/${book.metaData.creator}`;
     if (!fs.existsSync(authorFolder)) {
       fs.mkdirSync(authorFolder);
     }
 
-    const books = groupedByAuthor[authorName];
-    for (let j = 0; j < books.length; j++) {
-      const book = books[j];
+    // Location for books withouth additional files
+    let bookLocation = `${authorFolder}`;
 
-      let newLocation = '';
-      if (book.metaData.title) {
-        newLocation = `${authorFolder}/${sanitize(book.metaData.title as string)} - ${newAuthorName}.epub`;
-        if (book.metaData.date) {
-          newLocation = `${authorFolder}/${sanitize(book.metaData.title as string)} (${book.metaData.date.getFullYear()}) - ${newAuthorName}.epub`;
-        }
-      } else {
-        console.log('BASENAME COPY' + path.basename(book.originalLocation));
+    // Default book title for when there is no metadata present
+    let bookTitle = path.basename(book.eBook.file);
 
-        newLocation = `${authorFolder}/${path.basename(book.originalLocation)}`;
+    // When there are additional files for an ebook the book will
+    // be placed in it's own folder
+    if (book.eBook.metadataFile || book.eBook.additionalFiles?.length) {
+      bookLocation += `/${book.metaData.title}`;
+
+      if (!fs.existsSync(bookLocation)) {
+        fs.mkdirSync(bookLocation);
       }
 
-      fs.copyFileSync(book.originalLocation, newLocation);
+      // Move additional files to the book folder
+      for (const file of book.eBook.additionalFiles ?? []) {
+        fs.copyFileSync(
+          file,
+          `${bookLocation}/${path.basename(file)}`,
+        );
+      }
+
+      if (book.eBook.metadataFile) {
+        fs.copyFileSync(
+          book.eBook.metadataFile,
+          `${bookLocation}/metadata.opf`,
+        );
+      }
     }
+
+    if (book.metaData.title && book.metaData.date) {
+      bookLocation += `/${book.metaData.title} (${book.metaData.date.getFullYear()}) - ${book.metaData.creator}.epub`;
+    } else if (book.metaData.title) {
+      bookLocation += `/${book.metaData.title} - ${book.metaData.creator}.epub`;
+    } else {
+      bookLocation += `/${bookTitle}`;
+    }
+
+    console.log(bookLocation);
+
+    fs.copyFileSync(
+      book.eBook.file,
+      `${bookLocation}`,
+    );
   }
 };
 
-const collectBooks = async (folder: string): Promise<GroupedBooks> => {
+async function handle(): Promise<void> {
+  const booksDirectory = 'books';
 
   // Create empty array and pass along as reference to
   // fill it recursively with all epub paths
-  const files: string[] = [];
-  await readFolder(folder, files);
+  const files: EBook[] = [];
+  await collectBooks(booksDirectory, files);
   files.sort();
 
   // Create empty array and pass along as reference to
   // fill it with parsed books based on metadata
   const parsedBooks: ParsedBook[] = [];
   const invalidFiles: string[] = [];
-  await parseBooks(files, parsedBooks, invalidFiles);
-
-  const groupedByAuthor: GroupedBooks = await groupByAuthor(parsedBooks);
-
-  console.log(`Authors: ${Object.keys(groupedByAuthor).length}`);
-  console.log(`Parseable books: ${parsedBooks.length}`);
-  console.log(`Invalid books: ${invalidFiles.length}`)
-
-  return groupedByAuthor;
-};
-
-
-async function handle() {
-  const ebooks: GroupedBooks = await collectBooks('books');
+  await parseBooks(
+    files,
+    parsedBooks,
+    invalidFiles,
+  );
 
   // write to new structure
-  await copyBooks(ebooks);
+  await copyBooks(parsedBooks);
 };
 
 handle();
